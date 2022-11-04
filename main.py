@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from validators import ValidationFailure
 
 from BanList import BanList
+from GenerateurInsultes import get_insulte_generique, get_insultes, get_insulte_con_comme
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -68,7 +69,7 @@ class Menu(discord.ui.View):
 
     @discord.ui.button(label="UNBAN UNE CARTE 🎴➡✔️", style=discord.ButtonStyle.green)
     async def menu_unbancard(self, interaction: discord.Interaction, button: discord.ui.Button):
-        pass
+        await interaction.response.edit_message(content="Choisis une carte :", view=DropdownBanCardsView())
 
 
 class ModalTestDeck(discord.ui.Modal, title="Rentre ta decklist"):
@@ -79,7 +80,21 @@ class ModalTestDeck(discord.ui.Modal, title="Rentre ta decklist"):
         embed = discord.Embed(title="Decklist", description=f"{self.decklist}")
         embed.set_author(name=interaction.user, icon_url=interaction.user.avatar)
 
-        await interaction.response.edit_message(embed=embed, view=None)
+        # Construction de la réponse
+        banned_cards = banlist.test_decklist(self.decklist.value.split('\n'))
+        response = ""
+
+        if not banned_cards:
+            response = "-- ✔✔✔ DECK VALIDE ✔✔✔ --"
+        else:
+            insultes = get_insultes(len(banned_cards))
+            s = "" if len(banned_cards) == 1 else "S"
+            response = f"-- ❌ {interaction.user.mention} TON DECK CONTIENT **{len(banned_cards)}** CARTE{s} BANNIE{s}" \
+                       f" **{insultes.upper()}** ❌ --\n"
+            for banned in banned_cards:
+                response += f"\n❌ **{banned.carte}** : *'{banned.raison}'* BAN PAR {banned.auteur}"
+
+        await interaction.response.edit_message(content=response, embed=None, view=None)
 
 
 class ModalBanCarte(discord.ui.Modal, title="Ban ta carte"):
@@ -107,7 +122,35 @@ class ModalBanCarte(discord.ui.Modal, title="Ban ta carte"):
         if banlist.add_ban(str(self.carte), str(interaction.user.name), str(self.raison), card_link) == 0:
             await interaction.response.edit_message(content=message, embed=embed, view=None)
         else:
-            await interaction.response.edit_message(content=f"--**{self.carte}** EST DEJA BANNIE BOUFFON--", view=None)
+            await interaction.response.edit_message(content=f"-- **{self.carte}** EST DEJA BANNIE **{get_insulte_con_comme().upper()}** --", view=None)
+
+
+class DropdownBanCards(discord.ui.Select):
+    def __init__(self):
+
+        # Set the options that will be presented inside the dropdown
+        options = []
+
+        for banned in banlist.banlist:
+            options.append(discord.SelectOption(label=banned.carte, description=None))
+
+        # The placeholder is what will be shown when no option is chosen
+        # The min and max values indicate we can only pick one of the three options
+        # The options parameter defines the dropdown options. We defined this above
+        super().__init__(placeholder='...', min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        banlist.remove_ban(self.values[0])
+        await interaction.response.edit_message(content=f"-- {interaction.user.mention} A DEBANNI LA CARTE **{self.values[0]}** ✔✔ --",
+                                                view=None)
+
+
+class DropdownBanCardsView(discord.ui.View):
+    def __init__(self):
+        super().__init__()
+
+        # Adds the dropdown to our view object.
+        self.add_item(DropdownBanCards())
 
 
 bot.run(TOKEN)

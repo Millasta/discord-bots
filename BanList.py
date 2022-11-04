@@ -20,6 +20,9 @@ class BanList:
 
         return -1
 
+    def remove_ban(self, carte: str):
+        self.banlist = list(filter(lambda l: l.carte.lower() != carte.lower(), self.banlist))
+
     def write_bans_to_csv(self):
         try:
             with open(self.filename, 'w+', newline='') as f:
@@ -42,3 +45,18 @@ class BanList:
             message += f"**{ban}** banni par {ban.auteur} {': ' + ban.raison if ban.raison else ''}\n"
 
         return message
+
+    def test_decklist(self, lines: list[str]) -> list[BanLine]:
+        """
+        Parcourt la liste de cartes renseignée pour déterminer si elle contient une ou plusieurs cartes bannies
+        """
+
+        invalid_cards: list[BanLine] = []
+
+        for line in lines:
+            for banned in self.banlist:
+                if banned.carte.lower() in line.lower() and banned not in invalid_cards:
+                    # Carte bannie
+                    invalid_cards.append(banned)
+
+        return invalid_cards
