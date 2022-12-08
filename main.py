@@ -149,6 +149,7 @@ class DropdownBanCardsView(discord.ui.View):
     def __init__(self):
         super().__init__()
 
+
         # Adds the dropdown to our view object.
         self.add_item(DropdownBanCards())
 
